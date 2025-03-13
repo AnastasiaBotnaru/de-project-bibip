@@ -7,7 +7,7 @@ class CarService:
 
     # Задание 1. Сохранение автомобилей и моделей
     def add_model(self, model: Model) -> Model:
-        raise NotImplementedError
+        print('this is add_model method')
 
     # Задание 1. Сохранение автомобилей и моделей
     def add_car(self, car: Car) -> Car:
@@ -36,3 +36,9 @@ class CarService:
     # Задание 7. Самые продаваемые модели
     def top_models_by_sales(self) -> list[ModelSaleStats]:
         raise NotImplementedError
+
+
+carservice = CarService('c/Dev/de-project-bibip/database/')
+model = Model(id='1', name='Optima', brand='Kia')
+carservice.add_model(model)
+print(carservice.root_directory_path)
