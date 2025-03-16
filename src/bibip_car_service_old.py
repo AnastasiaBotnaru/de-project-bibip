@@ -18,77 +18,52 @@ class CarService:
 
         Path(self.root_directory_path).mkdir(exist_ok=True)
 
-        if (not Path(file_path_models).exists() and
-            not Path(file_path_index).exists()
-        ):
-            with open(file_path_models, 'w') as file:
+        # Шаг 1. Пытаемся создать файл для записи моделей. 
+        # Если такого файла еще нет, создаем его и добавляем туда первую запись.
+        # Для простоты считаем, что если не существует файл models.txt, то не существует и models_index.txt.
+        try:
+            with open(file_path_models, 'x') as file:
                 file.write(f'{row_value_model}')
-                
-            row_value_index = f'{model.id},1'.ljust(500) + '\n'
-
-            with open(file_path_index, 'x') as ifile:
-                ifile.write(f'{row_value_index}')
-
-        elif (Path(file_path_models).exists() and
-            Path(file_path_index).exists()
-        ):
-            with open(file_path_models, "r+") as file:
-                # Для подсчета уже записанных строк использую enumarate, чтобы можно 
-                # было работать с большими файлами.
-                for line_number, line in enumerate(file):
+                row_value_index = f'{model.id}, 1'.ljust(500) + '\n'
+                try:
+                    with open(file_path_index, 'x') as ifile:
+                        ifile.write(f'{row_value_index}')
+                except FileExistsError:
                     pass
+                return model
+        # Если такой файл уже есть пропускаем ход и ниже откроем файл повторно
+        # в режиме r+, чтобы одновременно и читать, и писать в него.        
+        except FileExistsError:
+            pass
 
-                line_number += 1 
-                file.seek(line_number * (501)) # длина строки 501, т.к. добавили символ перехода строки — он тоже считается.
-                file.write(f'{row_value_model}')    
-            
-            row_value_index = f'{model.id},{line_number + 1}'.ljust(500) + '\n'
-            
+        # Если файл с моделями уже есть:
+        # - открываем его на чтение+запись,
+        # - считаем кол-во строк,
+        # добавляем новую строку в конец файла.        
+        with open(file_path_models, "r+") as file:
+            # Для подсчета уже записанных строк использую enumarate, чтобы можно 
+            # было работать с большими файлами.
+            for line_number, line in enumerate(file):
+                pass
+
+            line_number += 1 
+            file.seek(line_number * (501)) # длина строки 501, т.к. добавили символ перехода строки — он тоже считается.
+            file.write(f'{row_value_model}')
+            row_value_index = f'{model.id}, {line_number + 1}'.ljust(500) + '\n'
             with open(file_path_index, 'r+') as ifile:
                 ifile.seek(line_number * (501))
                 ifile.write(f'{row_value_index}')
-
-            # После добавления очередной записи в индексный файл, сортируем его по id модели.
-            # Нужно на случай, если записи в models.txt будут добавлять не по порядку id, а индекс
-            # должен быть осортирован.
-            with open(file_path_index, 'r') as ifile:
-                rows = []
-                for row in ifile:
-                    model_id, index = tuple(row.split(','))
-                    print(model_id, index)
-                    rows.append((int(model_id),int(index)))
-                    print(rows)
-            
-            # Сортируем кортежи внутри списка по первому элементу. 
-            sorted_rows = sorted(rows, key=lambda x: int(x[0]))
-            print(sorted_rows)
-            # for row in sorted_rows:
-            #     print(f'{str(row[0])},{row[1].rstrip()}')
-
-            # Перезаписываем индексный файл в отсортированном порядке.    
-            with open(file_path_index, 'w') as ifile:
-                line_number = 0    
-                for row in sorted_rows:
-                    row_added = f'{row[0]},{row[1]}'.ljust(500) + '\n'
-                    print(f'row added {row_added}')
-                    ifile.seek(line_number * (501))
-                    ifile.write(row_added)
-                    line_number += 1
-
-        else:
-            print('Что-то пошло не так:()')
-            return model
-        
-
-        
-                # temp_index = [] * line_number             
-                # for iline in enumerate(ifile):
-                #     id, row_num = iline[1].split(',')
-                #     temp_index.append((int(id), row_num))
+                # Выгрузим содержимое индексного файла в список, отсортируем по первому полю и запишем обратно
+                # в отсортированном порядке. 
+                # temp_index = {} * line_number   
+                temp_index = [] * line_number             
+                for iline in enumerate(ifile):
+                    id, row_num = iline[1].split(',')
+                    temp_index.append((int(id), row_num))
                 
-                # sorted_temp_index = sorted(temp_index, key=lambda x: x[0])
-                # for _ in sorted_temp_index:
-                #     ifile.write(f'{_}')
+                sorted_temp_index = sorted(temp_index, key=lambda x: x[0])
+                for _ in sorted_temp_index:
+                    ifile.write(f'{_}')
 
 
         return model
@@ -172,19 +147,19 @@ class CarService:
 # Отладка
 carservice = CarService('database')
 # Добавление моделей
-model = Model(id=5, name='Logan', brand='Renault')
+model = Model(id='5', name='Logan', brand='Renault')
 print('Row added: ', carservice.add_model(model))
 
-model = Model(id=3, name='3', brand='Mazda')
+model = Model(id='3', name='3', brand='Mazda')
 print('Row added: ', carservice.add_model(model))
 
-model = Model(id=9, name='Optima', brand='Kia')
+model = Model(id='1', name='Optima', brand='Kia')
 print('Row added: ', carservice.add_model(model))
 
-model = Model(id=4, name='Pathfinder', brand='Nissan')
+model = Model(id='4', name='Pathfinder', brand='Nissan')
 print('Row added: ', carservice.add_model(model))
 
-model = Model(id=100, name='Sorento', brand='Kia')
+model = Model(id='2', name='Sorento', brand='Kia')
 print('Row added: ', carservice.add_model(model))
 
 # Добавление автомобилей
