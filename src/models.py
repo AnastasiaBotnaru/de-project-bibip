@@ -43,6 +43,7 @@ class Sale(BaseModel):
     def index(self) -> str:
         return self.car_vin
 
+
 class CarFullInfo(BaseModel):
     vin: str
     car_model_name: str
