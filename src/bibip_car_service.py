@@ -1,3 +1,5 @@
+from datetime import date, datetime
+from decimal import Decimal
 from models import Car, CarFullInfo, CarStatus, Model, ModelSaleStats, Sale
 from pathlib import Path
 
@@ -94,7 +96,7 @@ class CarService:
         file_path_index = f'{self.root_directory_path}/cars_index.txt' # Путь до файла с индексами
 
         # Конструируем запись "автомобиль" в виде строки vin,model,price,date_start,status
-        row_value_car = (f'{car.vin},{car.model},{car.price},{car.date_start},{car.status}').ljust(500) + '\n'
+        row_value_car = (f'{car.vin},{car.model},{car.price},{car.date_start.strftime('%Y-%m-%d')},{car.status}').ljust(500) + '\n'
 
         Path(self.root_directory_path).mkdir(exist_ok=True)
 
@@ -177,7 +179,7 @@ class CarService:
 
         # Конструируем запись "продажа" в виде строки sales_number,car_vin,sales_date,cost
         row_value_sale = (
-            f'{sale.sales_number},{sale.car_vin},{sale.sales_date},{sale.cost},{sale.is_deleted}'
+            f'{sale.sales_number},{sale.car_vin},{sale.sales_date.strftime('%Y-%m-%d')},{sale.cost},{sale.is_deleted}'
             ).ljust(500) + '\n'
 
         # Считаем, что sales и sales_index должны существовать одновременно.
@@ -338,7 +340,7 @@ class CarService:
                                 status=rows[4])
                         cars_list.append(car)    
 
-        cars_list.sort(key=lambda car: car.vin, reverse=True)
+        # cars_list.sort(key=lambda car: car.vin, reverse=False)
 
         return cars_list
 
@@ -356,8 +358,6 @@ class CarService:
         # Если какого-то из файлов нет, возвращаем ошибку и завершаем работу метода
         if (not Path(file_path_cars).exists() or
             not Path(file_path_car_index).exists() or
-            not Path(file_path_sales).exists() or
-            not Path(file_path_sales_index).exists() or
             not Path(file_path_models).exists() or
             not Path(file_path_models_index).exists()
         ):
@@ -385,9 +385,9 @@ class CarService:
                     
                 if vin in rows:
                     car_index = rows[vin]
-                    print(f'Задание 4. vin нашелся')
+                    # print(f'Задание 4. vin нашелся')
                 else:
-                    print(f'Задание 4. Ошибка. Автомобиль с vin = {vin} не найден.')
+                    # print(f'Задание 4. Ошибка. Автомобиль с vin = {vin} не найден.')
                     return 
                 
         # Ищем машину в cars.txt - номер строки нашли в cars_index.txt.
@@ -395,12 +395,12 @@ class CarService:
         with open(file_path_cars, 'r') as cfile:
             cfile.seek((car_index - 1) * (501))
             rows = cfile.readline().rstrip().split(',')
-            print(f'Задание 4. Ищем машину по vin: {rows}')
+            # print(f'Задание 4. Ищем машину по vin: {rows}')
             car_info.car_model_name = str(rows[1]) # Временно сохраняем сюда id модели в виде строки
-            car_info.price = rows[2]
-            car_info.date_start = rows[3]
-            car_info.status = rows[4]
-            print(f'Задание 4. Обновили объект car_info: {car_info}')
+            car_info.price = Decimal(rows[2])
+            car_info.date_start = datetime.strptime(rows[3], '%Y-%m-%d') #date_start=datetime(2024, 2, 8),
+            car_info.status = CarStatus(rows[4])
+            # print(f'Задание 4. Обновили объект car_info: {car_info}')
 
         # Ищем модель по id в индексе
         with open(file_path_models_index, 'r') as mifile:
@@ -408,13 +408,13 @@ class CarService:
                 for row in mifile:
                     model_id, model_index = tuple(row.split(','))
                     rows[model_id] = int(model_index)
-                print(f'Задание 4. Заполняем rows записями из индекса моделей: {rows}')    
+                # print(f'Задание 4. Заполняем rows записями из индекса моделей: {rows}')    
                     
                 if car_info.car_model_name in rows: # Здесь временно лежит id модели из cars.txt
                     model_index = rows[car_info.car_model_name]
-                    print(f'Задание 4. id модели нашелся. Индекс - {model_index}, {rows[car_info.car_model_name]}')
+                    # print(f'Задание 4. id модели нашелся. Индекс - {model_index}, {rows[car_info.car_model_name]}')
                 else:
-                    print(f'Задание 4. Ошибка. Модель с id = {car_info.car_model_name} не найдена.')
+                    # print(f'Задание 4. Ошибка. Модель с id = {car_info.car_model_name} не найдена.')
                     return
                 
         # Ищем модель в models.txt - номер строки нашли в models_index.txt.
@@ -422,27 +422,34 @@ class CarService:
         with open(file_path_models, 'r') as mfile:
             mfile.seek((model_index - 1) * (501))
             rows = mfile.readline().rstrip().split(',')
-            print(f'Задание 4. Ищем модель по id: {rows}')
+            # print(f'Задание 4. Ищем модель по id: {rows}')
             car_info.car_model_name = rows[1]
             car_info.car_model_brand = rows[2]
-            print(f'Задание 4. Обновили объект car_info: {car_info}')
+            # print(f'Задание 4. Обновили объект car_info: {car_info}')
 
         # Ищем запись о факте продаж в sales.txt. Индекса на vin нет, поэтому разбираем файл построчно.
-        with open(file_path_sales, "r") as sfile:
-                # Используем enumarate, чтобы можно было работать с большими файлами
-                # и не читать весь файл целиком в память.
-                for line in enumerate(sfile):
-                    rows = line[1].rstrip().split(',')
-                    if (
-                        rows[1] == vin and
-                        rows[1] == False
-                        ): # проверка на vin и на is_deleted=False
-                        car_info.sales_date = rows[2]
-                        car_info.sales_cost = rows[3]  
-                        # Считаем, что запись о продаже машины может быть только одна или не
-                        # существовать вовсе, поэтому если нашли, выходим из цикла.
-                        # Если не нашли - в car_info останутся значения по умолчанию = None.
-                        break     
+        # 1. Проверяем, есть ли файл с продажами. Если нет, возвращаем car_info, который к этому времени
+        # уже заполнили. Дата и цена продажи останутся None.
+        if (not Path(file_path_sales).exists() and
+            not Path(file_path_sales_index).exists()
+        ):
+            return car_info
+        else:
+            with open(file_path_sales, "r") as sfile:
+                    # Используем enumarate, чтобы можно было работать с большими файлами
+                    # и не читать весь файл целиком в память.
+                    for line in enumerate(sfile):
+                        rows = line[1].rstrip().split(',')
+                        if (
+                            rows[1] == vin and
+                            rows[4] == 'False'
+                            ): # проверка на vin и на is_deleted=False
+                            car_info.sales_date = datetime.strptime(rows[2], '%Y-%m-%d')
+                            car_info.sales_cost = Decimal(rows[3])  
+                            # Считаем, что запись о продаже машины может быть только одна или не
+                            # существовать вовсе, поэтому если нашли, выходим из цикла.
+                            # Если не нашли - в car_info останутся значения по умолчанию = None.
+                            break     
 
         return car_info
 
@@ -640,72 +647,111 @@ class CarService:
 
 # Отладка
 carservice = CarService('database')
-# Добавление моделей
-model = Model(id=5, name='Logan', brand='Renault')
-print('Model row added: ', carservice.add_model(model))
+# # Добавление моделей
+# model = Model(id=5, name='Logan', brand='Renault')
+# print('Model row added: ', carservice.add_model(model))
 
-model = Model(id=3, name='3', brand='Mazda')
-print('Model row added: ', carservice.add_model(model))
+# model = Model(id=3, name='3', brand='Mazda')
+# print('Model row added: ', carservice.add_model(model))
 
-model = Model(id=2, name='Optima', brand='Kia')
-print('Model row added: ', carservice.add_model(model))
+# model = Model(id=2, name='Optima', brand='Kia')
+# print('Model row added: ', carservice.add_model(model))
 
-model = Model(id=4, name='Pathfinder', brand='Nissan')
-print('Model row added: ', carservice.add_model(model))
+# model = Model(id=4, name='Pathfinder', brand='Nissan')
+# print('Model row added: ', carservice.add_model(model))
 
-model = Model(id=1, name='Sorento', brand='Kia')
-print('Model row added: ', carservice.add_model(model))
+# model = Model(id=1, name='Sorento', brand='Kia')
+# print('Model row added: ', carservice.add_model(model))
 
-# Добавление автомобилей
-car = Car(vin='KNAGM4A77D5316538', model=1, price=2000, date_start='2024-02-08', status=CarStatus('available'))
-print('Car row added: ', carservice.add_car(car))
+# # Добавление автомобилей
+# car = Car(vin='KNAGM4A77D5316538', model=1, price=2000, date_start='2024-02-08', status=CarStatus('available'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='5XYPH4A10GG021831', model=2, price=2300, date_start='2024-02-20', status=CarStatus('reserve'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='5XYPH4A10GG021831', model=2, price=2300, date_start='2024-02-20', status=CarStatus('reserve'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='KNAGH4A48A5414970', model=1, price=2100, date_start='2024-04-04', status=CarStatus('available'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='KNAGH4A48A5414970', model=1, price=2100, date_start='2024-04-04', status=CarStatus('available'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='JM1BL1TFXD1734246', model=3, price=2276.65, date_start='2024-05-17', status=CarStatus('available'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='JM1BL1TFXD1734246', model=3, price=2276.65, date_start='2024-05-17', status=CarStatus('available'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='JM1BL1M58C1614725', model=3, price=2549.10, date_start='2024-05-17', status=CarStatus('reserve'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='JM1BL1M58C1614725', model=3, price=2549.10, date_start='2024-05-17', status=CarStatus('reserve'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='VC1BL1M58C1614725', model=5, price=4540.10, date_start='2025-02-10', status=CarStatus('available'))
-print('Car row added: ', carservice.add_car(car)) # Для замены vin
+# car = Car(vin='VC1BL1M58C1614725', model=5, price=4540.10, date_start='2025-02-10', status=CarStatus('available'))
+# print('Car row added: ', carservice.add_car(car)) # Для замены vin
 
-# Добавление продаж
-# «код автосалона#номер продажи»
-sale = Sale(sales_number='YASENEVO#1', car_vin='5XYPH4A10GG021831', sales_date='2025-03-17', cost=2300, is_deleted=False)
-print('Sale row added: ', carservice.sell_car(sale))
+# # Добавление продаж
+# # «код автосалона#номер продажи»
+# sale = Sale(sales_number='YASENEVO#1', car_vin='5XYPH4A10GG021831', sales_date='2025-03-17', cost=2300, is_deleted=False)
+# print('Sale row added: ', carservice.sell_car(sale))
 
-# несуществующий vin
-sale = Sale(sales_number='BOBROVO#9', car_vin='JM1BL1M58C1614725', sales_date='2025-03-10', cost=2400, is_deleted=False)
-print('Sale row added: ', carservice.sell_car(sale))
+# # несуществующий vin
+# sale = Sale(sales_number='BOBROVO#9', car_vin='JM1BL1M58C1614725', sales_date='2025-03-10', cost=2400, is_deleted=False)
+# print('Sale row added: ', carservice.sell_car(sale))
 
-sale = Sale(sales_number='YASENEVO#1', car_vin='JM1BL1TFXD1734246', sales_date='2025-03-10', cost=2700, is_deleted=False)
-print('Sale row added: ', carservice.sell_car(sale))
+# sale = Sale(sales_number='YASENEVO#1', car_vin='JM1BL1TFXD1734246', sales_date='2025-03-10', cost=2700, is_deleted=False)
+# print('Sale row added: ', carservice.sell_car(sale))
 
-car = Car(vin='KNAGM4A77D5316549', model=1, price=4050, date_start='2024-02-08', status=CarStatus('available'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='KNAGM4A77D5316549', model=1, price=4050, date_start='2024-02-08', status=CarStatus('available'))
+# print('Car row added: ', carservice.add_car(car))
 
-car = Car(vin='5XYPH4A10GG021999', model=2, price=7300, date_start='2024-02-20', status=CarStatus('reserve'))
-print('Car row added: ', carservice.add_car(car))
+# car = Car(vin='5XYPH4A10GG021999', model=2, price=7300, date_start='2024-02-20', status=CarStatus('reserve'))
+# print('Car row added: ', carservice.add_car(car))
 
-print(carservice.get_cars(CarStatus('available')))
+# print(carservice.get_cars(CarStatus('available')))
 
-print(carservice.get_car_info('5XYPH4A10GG021999')) # Нет записи в продажах
+# print(carservice.get_car_info('5XYPH4A10GG021999')) # Нет записи в продажах
 
-print(carservice.get_car_info('JM1BL1TFXD1734246')) # Есть запись в продажах
+full_info_no_sale = CarFullInfo(
+            vin="KNAGM4A77D5316538",
+            car_model_name="Optima",
+            car_model_brand="Kia",
+            price=Decimal("2000"),
+            date_start=datetime(2024, 2, 8),
+            status=CarStatus.available,
+            sales_date=None,
+            sales_cost=None,
+        )
 
-# Замена vin
+sale = Sale(
+            sales_number="20240903#KNAGM4A77D5316538",
+            car_vin="KNAGM4A77D5316538",
+            sales_date=datetime(2024, 9, 3),
+            cost=Decimal("2999.99"),
+        )
 
-print(carservice.update_vin('VC1BL1M58C1614725', 'AA1BL1M58C5555555')) #исходный - VC1BL1M58C1614725
+full_info_with_sale = CarFullInfo(
+            vin="KNAGM4A77D5316538",
+            car_model_name="Optima",
+            car_model_brand="Kia",
+            price=Decimal("2000"),
+            date_start=datetime(2024, 2, 8),
+            status=CarStatus.sold,
+            sales_date=sale.sales_date,
+            sales_cost=sale.cost,
+        )
 
-# Отмена продажи JM1BL1TFXD1734246
+# if carservice.get_car_info("KNAGM4A77D5316538") == full_info_with_sale:
+#     print('ok')
+# else:
+#     print('err')
+#     print(carservice.get_car_info("KNAGM4A77D5316538"))
+#     print(full_info_with_sale)
 
-print(carservice.revert_sale('YASENEVO#1'))
+# if full_info_no_sale == carservice.get_car_info('KNAGM4A77D5316538'):
+#         print('ok')
+# else:
+#     print('err')
+
+# # Замена vin
+
+# print(carservice.update_vin('VC1BL1M58C1614725', 'AA1BL1M58C5555555')) #исходный - VC1BL1M58C1614725
+
+# # Отмена продажи JM1BL1TFXD1734246
+
+# print(carservice.revert_sale('YASENEVO#1'))
 
 # Добавила обработку продажи с несуществующим vin - показывается сообщение об ошибке
 # Отсортировала по вин-номеру список объектов car, которые возвращает get_cars()
